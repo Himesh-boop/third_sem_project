@@ -1,5 +1,5 @@
-import numpy as np
-import pandas as pd
+import numpy 
+import pandas 
 import json
 import random
 
@@ -21,7 +21,7 @@ with open("Dataset.json", "r") as f:
             response = random.choice(responses)
             sample = f'''"text": """User: {pattern}\\nAssistant: {response}""", '''
             sample_data.append(sample)
-            
+
 with open("PreProcessed_data.txt", "w") as f:
     for s in sample_data:
         f.write(s+"\n\n")
