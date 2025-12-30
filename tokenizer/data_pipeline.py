@@ -41,7 +41,7 @@ def tokenize_data(
     output_dir="tokenized_dataset",
     model_name="EleutherAI/gpt-neo-125M",
     max_length=512,
-    test_split=0.1
+    test_split=0.2
 ):
     with open(input_file, "r", encoding="utf-8") as f:
         data = json.load(f)
