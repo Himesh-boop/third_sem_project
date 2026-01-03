@@ -640,13 +640,12 @@ def create_emotion_based_dataset(
             emotion = 'educational'
 
         template = templates[emotion]
-        structured_text = template.format(
-            user_input=pattern,
-            assistant_response=response
-        )
+        system, user, assistant = templates[emotion].split("User: ")[0], templates[emotion].split("User: ")[1].split("Assistant: ")[0], templates[emotion].split("Assistant: ")[1]
 
         sample = {
-            "text": structured_text,
+            "SYSTEM": system,
+            "User" : user.replace("{user_input}", pattern),
+            "Assistant": assistant.replace("{assistant_response}", response),
             "emotion": emotion,
             "original_tag": tag,
             "confidence": result['confidence']
@@ -682,67 +681,112 @@ def tokenize_emotion_dataset(
     max_length=768,
     test_split=0.2
 ):
-  
     print("TOKENIZING EMOTION-BASED DATASET")
 
     with open(input_file, "r", encoding="utf-8") as f:
         data = json.load(f)
-    
+
     print(f"Loaded {len(data)} samples")
-    print(f"\nLoading tokenizer...")
+    print("\nLoading tokenizer...")
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    
-    texts = [{"text": item["text"]} for item in data]
-    dataset = Dataset.from_list(texts)
-    
-    def tokenize_function(examples):
-        tokenized = tokenizer(
-            examples["text"],
-            truncation=True,
-            padding="max_length",
-            max_length=max_length,
-            return_tensors=None
+
+
+    dataset = Dataset.from_list([
+        {
+            "SYSTEM": item["SYSTEM"],
+            "User": item["User"],
+            "Assistant": item["Assistant"]
+        }
+        for item in data
+    ])
+
+    def tokenize_function(example):
+
+        system_text = example["SYSTEM"].strip() + "\n\n"
+        user_text = f"User: {example['User'].strip()}\n\nAssistant:"
+        assistant_text = " " + example["Assistant"].strip()
+
+
+        system_ids = tokenizer(
+            system_text,
+            add_special_tokens=False
+        )["input_ids"]
+
+        user_ids = tokenizer(
+            user_text,
+            add_special_tokens=False
+        )["input_ids"]
+
+        assistant_ids = tokenizer(
+            assistant_text,
+            add_special_tokens=False
+        )["input_ids"]
+
+
+        input_ids = system_ids + user_ids + assistant_ids
+
+
+        labels = (
+            [-100] * len(system_ids)
+            + [-100] * len(user_ids)
+            + assistant_ids
         )
-        tokenized["labels"] = tokenized["input_ids"].copy()
-        return tokenized
-    
-    print(f"Tokenizing...")
+
+        input_ids = input_ids[:max_length]
+        labels = labels[:max_length]
+
+        attention_mask = [1] * len(input_ids)
+
+        return {
+            "input_ids": input_ids,
+            "labels": labels,
+            "attention_mask": attention_mask
+        }
+
+    print("Tokenizing...")
     tokenized_dataset = dataset.map(
         tokenize_function,
-        batched=True,
-        remove_columns=["text"],
+        remove_columns=["SYSTEM", "User", "Assistant"],
         desc="Tokenizing"
     )
-    
-    split_dataset = tokenized_dataset.train_test_split(test_size=test_split, seed=42)
+
+
+    split_dataset = tokenized_dataset.train_test_split(
+        test_size=test_split,
+        seed=42
+    )
+
     train_dataset = split_dataset["train"]
     val_dataset = split_dataset["test"]
-    
+
     print(f"\nSplit: {len(train_dataset)} train, {len(val_dataset)} validation")
-    
+
     os.makedirs(output_dir, exist_ok=True)
     train_dataset.save_to_disk(f"{output_dir}/train")
     val_dataset.save_to_disk(f"{output_dir}/validation")
     tokenizer.save_pretrained(f"{output_dir}/tokenizer")
-    
+
     stats = {
         "total_samples": len(data),
         "train_samples": len(train_dataset),
         "val_samples": len(val_dataset),
         "max_length": max_length,
         "templates": 9,
-        "classification": "emotion_based_semantic"
+        "classification": "emotion_based_semantic",
+        "label_masking": "assistant_only",
+        "fields_used": ["SYSTEM", "User", "Assistant"]
     }
-    
-    with open(f"{output_dir}/stats.json", "w") as f:
+
+    with open(f"{output_dir}/stats.json", "w", encoding="utf-8") as f:
         json.dump(stats, f, indent=2)
-    
+
     print(f"Saved to {output_dir}/\n")
-    
+
     return train_dataset, val_dataset
+
 
 def main():
     sample_data, stats = create_emotion_based_dataset()
