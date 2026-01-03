@@ -1,8 +1,10 @@
 import json
 import random
 import numpy as np
+import pandas as pd
 import os
-from typing import Dict
+from collections import Counter, defaultdict
+from typing import List, Dict, Tuple
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers import AutoTokenizer
@@ -226,6 +228,68 @@ AVOID: Overwhelming with too many options, vague advice
 User: {user_input}
 Assistant: {assistant_response}"""
 
+TEMPLATE_POSITIVE = """SYSTEM: You are Freud, supporting someone experiencing positive emotions.
+
+EMOTIONAL CONTEXT: Joy, Happiness & Positive Emotions
+- Celebrate their positive feelings genuinely
+- Help them savor and appreciate the moment
+- Encourage them to notice what contributed to this feeling
+- Validate that positive emotions are as important as difficult ones
+
+RESPONSE APPROACH:
+1. Celebrate: "That's wonderful! I'm so glad you're feeling this way."
+2. Explore: "What's contributing to these positive feelings?"
+3. Savor: Help them fully experience and appreciate the moment
+4. Reflect: "What does this tell you about what brings you joy?"
+5. Encourage: Support them in seeking more of what makes them feel good
+
+TONE: Warm, celebratory, genuine, encouraging
+AVOID: Dampening their joy, warning about it ending, toxic positivity
+
+User: {user_input}
+Assistant: {assistant_response}"""
+
+TEMPLATE_GUILT = """SYSTEM: You are Freud, supporting someone experiencing guilt or shame.
+
+EMOTIONAL CONTEXT: Guilt, Shame & Self-Blame
+- Distinguish between healthy guilt (motivates change) and toxic shame (attacks self-worth)
+- Validate that guilt shows they care about their impact on others
+- Help separate actions from identity - they did something wrong, they aren't wrong
+- Encourage self-compassion and making amends where appropriate
+
+RESPONSE APPROACH:
+1. Validate: "Guilt can be so heavy. It shows you care about doing right."
+2. Separate: "What you did isn't who you are. You're more than this moment."
+3. Explore: "What's this guilt trying to tell you?"
+4. Compassion: Encourage self-forgiveness and learning
+5. Action: Help them consider constructive steps forward
+
+TONE: Gentle, compassionate, non-judgmental, understanding
+AVOID: Minimizing their feelings, harsh judgment, "you shouldn't feel guilty"
+
+User: {user_input}
+Assistant: {assistant_response}"""
+
+TEMPLATE_NEUTRAL = """SYSTEM: You are Freud, having a casual, non-crisis conversation.
+
+INTERACTION CONTEXT: Casual Conversation
+- This is general chat, questions about you, or lighthearted interaction
+- Be warm, personable, and human-like
+- Answer questions naturally and conversationally
+- Maintain therapeutic presence without being overly clinical
+
+RESPONSE APPROACH:
+1. Engage: Respond naturally to their question or comment
+2. Warmth: Keep your tone friendly and approachable
+3. Openness: Be willing to chat while remaining boundaried
+4. Redirect: If appropriate, gently turn conversation toward their wellbeing
+5. Presence: Show you're here as a supportive companion
+
+TONE: Friendly, conversational, warm, natural
+AVOID: Being robotic, overly formal, dismissive
+
+User: {user_input}
+Assistant: {assistant_response}"""
 
 class EmotionBasedSemanticClassifier:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
@@ -233,32 +297,19 @@ class EmotionBasedSemanticClassifier:
 
         self.reference_examples = {
             'greeting': [
-                "hi",
-                "hello",
-                "hey",
-                "hey there",
-                "hello there",
-                "good morning",
-                "good afternoon",
-                "good evening",
-                "is anyone there",
-                "are you there",
-                "hello freud",
-                "hi freud",
-                "yo what's up",
-                "just saying hi",
-                "checking in",
-                "can we talk",
-                "are you available"
+                "hi", "hello", "hey", "hey there", "hello there",
+                "good morning", "good afternoon", "good evening",
+                "is anyone there", "are you there", "hello freud",
+                "hi freud", "yo what's up", "just saying hi",
+                "checking in", "can we talk", "are you available"
             ],
+            
             'sadness': [
                 # Direct expressions
-                "I feel so sad",
-                "I'm feeling depressed",
+                "I feel so sad", "I'm feeling depressed",
                 "I feel hopeless and empty inside",
                 "Everything feels meaningless",
-                "I can't stop crying",
-                "I feel numb and disconnected",
+                "I can't stop crying", "I feel numb and disconnected",
                 "Nothing brings me joy anymore",
                 "I feel like I'm drowning in sadness",
                 "The sadness is overwhelming",
@@ -272,11 +323,20 @@ class EmotionBasedSemanticClassifier:
                 "I feel heavy, like I'm carrying the weight of the world",
                 "I can't remember the last time I felt happy",
                 "Getting out of bed feels impossible",
-                "I feel like I'm just going through the motions"
+                "I feel like I'm just going through the motions",
+                
+                # Worthlessness (EXPANDED)
+                "I feel like a failure",
+                "I'm not good enough",
+                "I don't deserve good things",
+                "I'm worthless",
+                "I always mess everything up",
+                "Everyone is better than me",
+                "I'm a burden to everyone",
+                "I don't matter to anyone"
             ],
             
             'anxiety': [
-                # Direct expressions
                 "I feel anxious all the time",
                 "I'm constantly worried about everything",
                 "My anxiety is overwhelming",
@@ -289,18 +349,19 @@ class EmotionBasedSemanticClassifier:
                 "I'm scared and I don't know why",
                 "Everything makes me nervous",
                 "I feel like something terrible is going to happen",
-                
-                # Physical symptoms
                 "My heart is racing and I can't breathe",
                 "I feel shaky and dizzy",
                 "I can't calm down no matter what I do",
                 "I feel like I'm losing control",
                 "The anxiety is paralyzing me",
-                "I'm anxious about being anxious"
+                "I'm anxious about being anxious",
+                # Sleep/worry related (EXPANDED)
+                "I'm worried about how this is affecting me",
+                "I can't sleep because I'm so worried",
+                "My anxiety is keeping me up at night"
             ],
             
             'anger': [
-                # Direct expressions
                 "I'm so angry right now",
                 "I feel furious and frustrated",
                 "I'm fed up with everything",
@@ -313,18 +374,21 @@ class EmotionBasedSemanticClassifier:
                 "I'm angry at myself",
                 "I'm furious at how unfair this is",
                 "I can't control my anger",
-                
-                # Contextual expressions
                 "Why does this always happen to me",
                 "I'm tired of being treated this way",
                 "No one understands how frustrating this is",
                 "I'm done with people disappointing me",
                 "I feel disrespected and dismissed",
-                "I'm angry that no one listens"
+                "I'm angry that no one listens",
+                # Criticism/frustration (EXPANDED)
+                "You're so inefficient",
+                "This is completely unacceptable",
+                "I'm fed up with this nonsense",
+                "Why can't people just do their job",
+                "I'm tired of incompetence"
             ],
             
             'loneliness': [
-                # Direct expressions
                 "I feel so alone",
                 "Nobody understands me",
                 "I feel isolated and disconnected",
@@ -337,8 +401,6 @@ class EmotionBasedSemanticClassifier:
                 "Everyone has someone except me",
                 "I'm lonely all the time",
                 "I feel like I don't belong anywhere",
-                
-                # Social expressions
                 "I have no real friends",
                 "I don't fit in with anyone",
                 "I'm always the outsider",
@@ -348,7 +410,6 @@ class EmotionBasedSemanticClassifier:
             ],
             
             'stress': [
-                # Direct expressions
                 "I'm so stressed out",
                 "I feel overwhelmed by everything",
                 "There's too much on my plate",
@@ -361,8 +422,6 @@ class EmotionBasedSemanticClassifier:
                 "I feel like I'm about to break",
                 "The stress never ends",
                 "I'm exhausted from all the pressure",
-                
-                # Situational stress
                 "I have too many deadlines",
                 "I'm juggling too many things at once",
                 "I don't have time for anything",
@@ -372,21 +431,15 @@ class EmotionBasedSemanticClassifier:
             ],
             
             'fear': [
-                # Direct expressions
-                "I'm scared",
-                "I feel terrified",
+                "I'm scared", "I feel terrified",
                 "I'm afraid of what might happen",
-                "Fear is consuming me",
-                "I'm panicking",
+                "Fear is consuming me", "I'm panicking",
                 "I feel like something bad is about to happen",
                 "I'm frightened and don't know why",
                 "I'm having a panic attack",
                 "I can't shake this feeling of dread",
-                "I'm paralyzed by fear",
-                "I feel unsafe",
+                "I'm paralyzed by fear", "I feel unsafe",
                 "Terror is taking over",
-                
-                # Specific fears
                 "I'm scared I'm going to fail",
                 "I'm afraid of losing everything",
                 "I'm terrified of being alone",
@@ -414,21 +467,76 @@ class EmotionBasedSemanticClassifier:
                 
                 # Burden thoughts
                 "Everyone would be better off without me",
-                "I'm a burden to everyone",
                 "My family deserves better than me",
                 "I'm just making things worse for everyone",
                 
                 # Self-harm
-                "I want to hurt myself",
-                "I'm thinking about cutting",
-                "I need to punish myself",
-                "I deserve to suffer",
-                "I've been harming myself",
-                "I can't stop hurting myself"
+                "I want to hurt myself", "I'm thinking about cutting",
+                "I need to punish myself", "I deserve to suffer",
+                "I've been harming myself", "I can't stop hurting myself"
+            ],
+            
+            'guilt': [  # NEW CATEGORY
+                "I feel so guilty",
+                "I'm ashamed of myself",
+                "I don't deserve happiness",
+                "I'm a terrible person",
+                "I feel like I've let everyone down",
+                "I'm so ashamed of what I did",
+                "I can't forgive myself",
+                "I deserve to feel this bad",
+                "I've disappointed everyone",
+                "I'm not worthy of love",
+                "I feel like I'm a bad person",
+                "I should have done better",
+                "This is all my fault",
+                "I'm responsible for everything going wrong",
+                "I don't deserve good things",
+                "I'm filled with shame",
+                "I hate myself for this"
+            ],
+            
+            'positive': [  # NEW CATEGORY
+                "I'm on top of the world",
+                "I'm feeling so happy",
+                "I feel amazing today",
+                "I'm so excited",
+                "I'm feeling great",
+                "Life is wonderful right now",
+                "I'm feeling jolly",
+                "I'm in such a good mood",
+                "Everything is going well",
+                "I feel fantastic",
+                "I'm thrilled about this",
+                "I'm feeling blessed",
+                "I'm so grateful",
+                "Things are looking up",
+                "I'm really proud of myself",
+                "I feel energized and alive",
+                "I'm having a great day"
+            ],
+            
+            'neutral': [  # NEW CATEGORY
+                "Do you have a fixed location",
+                "What's your name",
+                "How do you work",
+                "Tell me about yourself",
+                "What can you do",
+                "Are you a real person",
+                "Who created you",
+                "What are your capabilities",
+                "Can you help me with something",
+                "I have a question",
+                "Let's talk about something else",
+                "I'm not interested in this topic",
+                "Can we switch topics",
+                "Tell me something interesting",
+                "What's the weather like",
+                "Do you speak other languages",
+                "Bonjour", "Hola", "Namaste"
             ],
             
             'educational': [
-                # Definition questions
                 "What is depression",
                 "Define anxiety disorder",
                 "Explain PTSD to me",
@@ -439,22 +547,15 @@ class EmotionBasedSemanticClassifier:
                 "What are eating disorders",
                 "Define borderline personality disorder",
                 "What is ADHD",
-                
-                # Mechanism questions
                 "How does therapy work",
                 "What do antidepressants do",
                 "Explain cognitive behavioral therapy",
                 "How does EMDR work",
                 "What happens in psychotherapy",
                 "How do SSRIs work",
-                
-                # Comparison questions
                 "What's the difference between sadness and depression",
                 "How is anxiety different from stress",
                 "What's the difference between psychiatrist and psychologist",
-                "Is sadness the same as depression",
-                
-                # Information seeking
                 "Tell me about mental health treatment",
                 "What are the symptoms of depression",
                 "How do I know if I need therapy",
@@ -462,7 +563,6 @@ class EmotionBasedSemanticClassifier:
             ],
             
             'coping': [
-                # Technique requests
                 "How can I calm down",
                 "What helps with anxiety",
                 "I need coping strategies",
@@ -473,16 +573,12 @@ class EmotionBasedSemanticClassifier:
                 "What breathing exercises help",
                 "I need grounding techniques",
                 "How do I relax when anxious",
-                
-                # Specific situations
                 "How do I handle a panic attack",
                 "What should I do when I feel overwhelmed",
                 "How can I sleep better",
                 "What helps when I'm spiraling",
                 "How do I calm my racing thoughts",
                 "What can I do right now to feel better",
-                
-                # Skill building
                 "Teach me relaxation techniques",
                 "I want to learn mindfulness",
                 "Show me how to practice self-care",
@@ -500,10 +596,10 @@ class EmotionBasedSemanticClassifier:
     def classify(
         self,
         text: str,
-        threshold_crisis: float = 0.68,
-        threshold_high: float = 0.62,
-        threshold_medium: float = 0.57,
-        threshold_low: float = 0.52
+        threshold_crisis: float = 0.55,      # LOWERED from 0.68
+        threshold_high: float = 0.48,        # LOWERED from 0.62
+        threshold_medium: float = 0.45,      # LOWERED from 0.57
+        threshold_low: float = 0.42          # LOWERED from 0.52
     ) -> str:
         
         # STEP 1: Semantic classification
@@ -519,11 +615,11 @@ class EmotionBasedSemanticClassifier:
         
         max_similarity = max(similarities.values())
         
-        if max_similarity < 0.50: 
-            return 'educational'  
+        if max_similarity < 0.35:  # LOWERED from 0.50
+            return 'neutral' 
         
-        if similarities['greeting'] >= 0.55:
-            return 'educational'
+        if similarities['greeting'] >= 0.50:  # LOWERED from 0.55
+            return 'neutral'
         
         if similarities['crisis'] >= threshold_crisis:
             return 'crisis'
@@ -533,18 +629,35 @@ class EmotionBasedSemanticClassifier:
             if similarities[emotion] >= threshold_high:
                 return emotion
         
-        medium_intensity = ['sadness', 'loneliness', 'stress']
+        medium_intensity = ['sadness', 'loneliness', 'stress', 'guilt']  # Added guilt
         for emotion in medium_intensity:
             if similarities[emotion] >= threshold_medium:
                 return emotion
         
+        if similarities['positive'] >= threshold_low:
+            return 'positive'
+                
         if similarities['coping'] >= threshold_low:
             return 'coping'
         
         if similarities['educational'] >= threshold_low:
             return 'educational'
+
+        if similarities['neutral'] >= threshold_low:
+            return 'neutral'
         
-        return max(similarities, key=similarities.get)
+        best_match = max(similarities, key=similarities.get)
+        
+        # Prefer emotional categories over neutral/educational for ambiguous cases
+        emotional_categories = ['sadness', 'anxiety', 'anger', 'loneliness', 
+                                'stress', 'fear', 'guilt', 'positive']
+        emotional_scores = {k: v for k, v in similarities.items() 
+                           if k in emotional_categories}
+        
+        if emotional_scores and max(emotional_scores.values()) > 0.35:
+            return max(emotional_scores, key=emotional_scores.get)
+        
+        return best_match
     
     def classify_with_details(self, text: str) -> Dict:
         
@@ -593,6 +706,9 @@ def create_emotion_based_dataset(
         'stress': TEMPLATE_STRESS,
         'fear': TEMPLATE_FEAR,
         'crisis': TEMPLATE_CRISIS,
+        'guilt': TEMPLATE_GUILT,        # NEW
+        'positive': TEMPLATE_POSITIVE,  # NEW
+        'neutral': TEMPLATE_NEUTRAL,    # NEW
         'educational': TEMPLATE_EDUCATIONAL,
         'coping': TEMPLATE_COPING
     }
@@ -640,7 +756,10 @@ def create_emotion_based_dataset(
             emotion = 'educational'
 
         template = templates[emotion]
-        system, user, assistant = templates[emotion].split("User: ")[0], templates[emotion].split("User: ")[1].split("Assistant: ")[0], templates[emotion].split("Assistant: ")[1]
+        raw_system = templates[emotion].split("User: ")[0]
+        system = raw_system.replace("SYSTEM:", "").strip()
+        user = templates[emotion].split("User: ")[1].split("Assistant: ")[0]
+        assistant = templates[emotion].split("Assistant: ")[1]
 
         sample = {
             "SYSTEM": system,
@@ -674,6 +793,284 @@ def create_emotion_based_dataset(
     
     return sample_data, stats
 
+class DatasetValidator:
+    """Validates the quality of emotion-classified dataset"""
+    
+    def __init__(self, dataset_file: str = "preprocessed_data_semantic.json"):
+        with open(dataset_file, "r", encoding="utf-8") as f:
+            self.data = json.load(f)
+        self.classifier = EmotionBasedSemanticClassifier()
+    
+    # ===================================================================
+    # VALIDATION METHOD 1: Distribution Analysis
+    # ===================================================================
+    def check_distribution(self):
+        """Check if emotion categories are balanced"""
+        print("\n" + "="*60)
+        print("VALIDATION 1: EMOTION DISTRIBUTION")
+        print("="*60)
+        
+        emotions = [item['emotion'] for item in self.data]
+        distribution = Counter(emotions)
+        total = len(emotions)
+        
+        print(f"\nTotal samples: {total}\n")
+        print(f"{'Emotion':<15} {'Count':<8} {'%':<8} {'Status'}")
+        print("-" * 50)
+        
+        issues = []
+        for emotion, count in sorted(distribution.items(), key=lambda x: -x[1]):
+            pct = (count / total) * 100
+            
+            # Flag issues
+            status = "✓ OK"
+            if count < 50:
+                status = "⚠ LOW (need more examples)"
+                issues.append(f"{emotion}: only {count} samples")
+            elif count > total * 0.3:
+                status = "⚠ HIGH (may dominate)"
+                issues.append(f"{emotion}: {count} samples ({pct:.1f}%)")
+            
+            print(f"{emotion:<15} {count:<8} {pct:>5.1f}%   {status}")
+        
+        if issues:
+            print("\n⚠ DISTRIBUTION ISSUES:")
+            for issue in issues:
+                print(f"  • {issue}")
+            print("\n💡 Recommendation: Balance by adding/removing samples")
+        else:
+            print("\n✅ Distribution looks good!")
+        
+        return distribution
+    
+    # ===================================================================
+    # VALIDATION METHOD 2: Confidence Analysis
+    # ===================================================================
+    def check_confidence_scores(self, low_threshold: float = 0.45):
+        """Check classification confidence scores"""
+        print("\n" + "="*60)
+        print("VALIDATION 2: CLASSIFICATION CONFIDENCE")
+        print("="*60)
+        
+        confidences = [item['confidence'] for item in self.data]
+        
+        avg_conf = sum(confidences) / len(confidences)
+        min_conf = min(confidences)
+        max_conf = max(confidences)
+        
+        low_confidence = [item for item in self.data if item['confidence'] < low_threshold]
+        
+        print(f"\nConfidence Statistics:")
+        print(f"  Average: {avg_conf:.3f}")
+        print(f"  Minimum: {min_conf:.3f}")
+        print(f"  Maximum: {max_conf:.3f}")
+        print(f"  Samples < {low_threshold}: {len(low_confidence)} ({len(low_confidence)/len(self.data)*100:.1f}%)")
+        
+        if low_confidence:
+            print(f"\n⚠ {len(low_confidence)} LOW CONFIDENCE SAMPLES (may be misclassified):")
+            print("\nShowing 5 random examples:\n")
+            
+            for item in random.sample(low_confidence, min(5, len(low_confidence))):
+                user_input = item['User'].replace("{user_input}", "").strip()
+                print(f"  Input: \"{user_input[:60]}...\"" if len(user_input) > 60 else f"  Input: \"{user_input}\"")
+                print(f"  Classified as: {item['emotion'].upper()}")
+                print(f"  Confidence: {item['confidence']:.3f}")
+                print(f"  Original tag: {item['original_tag']}")
+                print()
+            
+            print("💡 Recommendation: Manually review these samples")
+        else:
+            print("\n✅ All samples have good confidence!")
+        
+        return low_confidence
+    
+    # ===================================================================
+    # VALIDATION METHOD 3: Manual Inspection with Random Sampling
+    # ===================================================================
+    def manual_inspection(self, num_samples: int = 20):
+        """Present random samples for human review"""
+        print("\n" + "="*60)
+        print("VALIDATION 3: MANUAL INSPECTION")
+        print("="*60)
+        
+        print(f"\nReviewing {num_samples} random samples...")
+        print("For each sample, verify if classification makes sense.\n")
+        
+        samples = random.sample(self.data, min(num_samples, len(self.data)))
+        
+        for i, item in enumerate(samples, 1):
+            user_input = item['User'].replace("{user_input}", "").strip()
+            
+            print(f"Sample {i}/{num_samples}")
+            print(f"  Input: \"{user_input}\"")
+            print(f"  Classified as: {item['emotion'].upper()}")
+            print(f"  Confidence: {item['confidence']:.3f}")
+            print(f"  Original intent: {item['original_tag']}")
+            
+            # Re-classify to show alternatives
+            result = self.classifier.classify_with_details(user_input)
+            print(f"  Top 3 matches:")
+            for rank, (em, score) in enumerate(result['top_3_emotions'], 1):
+                marker = "→" if em == item['emotion'] else " "
+                print(f"    {marker} {rank}. {em:<12}: {score:.3f}")
+            
+            print()
+    
+    # ===================================================================
+    # VALIDATION METHOD 4: Edge Case Testing
+    # ===================================================================
+    def test_edge_cases(self):
+        """Test problematic inputs"""
+        print("\n" + "="*60)
+        print("VALIDATION 4: EDGE CASE TESTING")
+        print("="*60)
+        
+        edge_cases = {
+            'crisis_implicit': [
+                "I don't deserve happiness",
+                "Everyone would be better off without me",
+                "I'm a burden to everyone"
+            ],
+            'positive': [
+                "I'm on top of the world",
+                "I'm feeling so jolly",
+                "Life is wonderful"
+            ],
+            'neutral': [
+                "Bonjour",
+                "What's your name",
+                "Do you have a fixed location"
+            ],
+            'ambiguous': [
+                "I'm worried about how this lack of sleep is affecting me",
+                "You're so inefficient to work with",
+                "I'm not invested in this topic"
+            ]
+        }
+        
+        print("\nTesting edge cases...\n")
+        
+        for category, inputs in edge_cases.items():
+            print(f"{category.upper()}:")
+            for inp in inputs:
+                result = self.classifier.classify_with_details(inp)
+                classification = result['classification']
+                confidence = result['confidence']
+                
+                status = "✓" if confidence > 0.45 else "⚠"
+                print(f"  {status} \"{inp[:50]}...\"" if len(inp) > 50 else f"  {status} \"{inp}\"")
+                print(f"     → {classification} (conf: {confidence:.3f})")
+            print()
+    
+    # ===================================================================
+    # VALIDATION METHOD 5: Misclassification Detection
+    # ===================================================================
+    def detect_misclassifications(self):
+        """Find likely misclassifications using secondary emotion"""
+        print("\n" + "="*60)
+        print("VALIDATION 5: MISCLASSIFICATION DETECTION")
+        print("="*60)
+        
+        print("\nLooking for samples where 2nd choice is very close to 1st...\n")
+        
+        suspicious = []
+        
+        for item in self.data:
+            user_input = item['User'].replace("{user_input}", "").strip()
+            result = self.classifier.classify_with_details(user_input)
+            
+            top_2 = result['top_3_emotions'][:2]
+            if len(top_2) == 2:
+                first_emotion, first_score = top_2[0]
+                second_emotion, second_score = top_2[1]
+                
+                # If difference is < 0.05, classification is uncertain
+                if abs(first_score - second_score) < 0.05:
+                    suspicious.append({
+                        'input': user_input,
+                        'classified': item['emotion'],
+                        'first': (first_emotion, first_score),
+                        'second': (second_emotion, second_score),
+                        'diff': first_score - second_score
+                    })
+        
+        if suspicious:
+            print(f"Found {len(suspicious)} uncertain classifications:\n")
+            
+            for item in random.sample(suspicious, min(10, len(suspicious))):
+                print(f"  Input: \"{item['input'][:55]}...\"" if len(item['input']) > 55 else f"  Input: \"{item['input']}\"")
+                print(f"  Classified as: {item['classified']}")
+                print(f"  But could be: {item['second'][0]} (diff: {item['diff']:.3f})")
+                print(f"    • {item['first'][0]}: {item['first'][1]:.3f}")
+                print(f"    • {item['second'][0]}: {item['second'][1]:.3f}")
+                print()
+            
+            print("💡 Recommendation: Review these and consider:")
+            print("   - Adding more diverse reference examples")
+            print("   - Creating sub-categories (e.g., guilt separate from sadness)")
+            print("   - Manual relabeling if obviously wrong")
+        else:
+            print("✅ No suspicious classifications found!")
+        
+        return suspicious
+    
+    # ===================================================================
+    # VALIDATION METHOD 6: Template Coverage Check
+    # ===================================================================
+    def check_template_coverage(self):
+        """Ensure all emotions have sufficient template examples"""
+        print("\n" + "="*60)
+        print("VALIDATION 6: REFERENCE EXAMPLE COVERAGE")
+        print("="*60)
+        
+        print("\nReference examples per emotion:\n")
+        
+        for emotion, examples in self.classifier.reference_examples.items():
+            count = len(examples)
+            status = "✓ Good" if count >= 15 else "⚠ Need more"
+            print(f"  {emotion:<15}: {count:>3} examples - {status}")
+        
+        print("\n💡 Recommendation: Each emotion should have 15-30 diverse examples")
+    
+    # ===================================================================
+    # RUN ALL VALIDATIONS
+    # ===================================================================
+    def run_all_validations(self):
+        """Run complete validation suite"""
+        print("\n" + "="*70)
+        print(" "*15 + "DATASET QUALITY VALIDATION REPORT")
+        print("="*70)
+        
+        self.check_distribution()
+        low_conf = self.check_confidence_scores()
+        self.manual_inspection(num_samples=10)
+        self.test_edge_cases()
+        suspicious = self.detect_misclassifications()
+        self.check_template_coverage()
+        
+        # Summary
+        print("\n" + "="*70)
+        print("VALIDATION SUMMARY")
+        print("="*70)
+        
+        issues_found = []
+        if low_conf:
+            issues_found.append(f"{len(low_conf)} low confidence samples")
+        if suspicious:
+            issues_found.append(f"{len(suspicious)} uncertain classifications")
+        
+        if not issues_found:
+            print("\n✅ DATASET QUALITY: EXCELLENT")
+            print("   No major issues found. Ready for training!")
+        else:
+            print("\n⚠ ISSUES FOUND:")
+            for issue in issues_found:
+                print(f"   • {issue}")
+            print("\n💡 Review flagged samples and iterate on:")
+            print("   1. Add more reference examples for underrepresented emotions")
+            print("   2. Fine-tune thresholds if needed")
+            print("   3. Manually relabel obvious misclassifications")
+       
 def tokenize_emotion_dataset(
     input_file="preprocessed_data_semantic.json",
     output_dir="tokenized_dataset_semantic",
@@ -790,6 +1187,8 @@ def tokenize_emotion_dataset(
 
 def main():
     sample_data, stats = create_emotion_based_dataset()
+    validator = DatasetValidator()
+    validator.run_all_validations()
     train_data, val_data = tokenize_emotion_dataset()
     
 if __name__ == "__main__":

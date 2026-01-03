@@ -4,5 +4,11 @@
   "val_samples": 1122,
   "max_length": 768,
   "templates": 9,
-  "classification": "emotion_based_semantic"
+  "classification": "emotion_based_semantic",
+  "label_masking": "assistant_only",
+  "fields_used": [
+    "SYSTEM",
+    "User",
+    "Assistant"
+  ]
 }
