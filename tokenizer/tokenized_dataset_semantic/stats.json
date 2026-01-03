@@ -1,0 +1,8 @@
+{
+  "total_samples": 5609,
+  "train_samples": 4487,
+  "val_samples": 1122,
+  "max_length": 768,
+  "templates": 9,
+  "classification": "emotion_based_semantic"
+}
