@@ -1,0 +1,13 @@
+{
+  "total_samples": 2400,
+  "train_samples": 1920,
+  "val_samples": 480,
+  "max_length": 768,
+  "classification": "hierarchical_emotion",
+  "label_masking": "assistant_only",
+  "fields_used": [
+    "SYSTEM",
+    "User",
+    "Assistant"
+  ]
+}
