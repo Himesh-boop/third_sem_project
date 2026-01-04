@@ -301,7 +301,8 @@ class EmotionBasedSemanticClassifier:
                 "good morning", "good afternoon", "good evening",
                 "is anyone there", "are you there", "hello freud",
                 "hi freud", "yo what's up", "just saying hi",
-                "checking in", "can we talk", "are you available"
+                "checking in", "can we talk", "are you available",
+                "greetings", "howdy", "yo", "hey you"
             ],
             
             'sadness': [
@@ -332,8 +333,15 @@ class EmotionBasedSemanticClassifier:
                 "I'm worthless",
                 "I always mess everything up",
                 "Everyone is better than me",
-                "I'm a burden to everyone",
-                "I don't matter to anyone"
+                "I don't matter to anyone",
+                "Nothing I do is ever enough",
+                "I disappoint everyone",
+                "I'm such a mess",
+                "Why can't I do anything right",
+                "I hate myself",
+                "I feel empty inside",
+                "Life has lost its meaning",
+                "I'm exhausted from pretending I'm okay"
             ],
             
             'anxiety': [
@@ -358,7 +366,12 @@ class EmotionBasedSemanticClassifier:
                 # Sleep/worry related (EXPANDED)
                 "I'm worried about how this is affecting me",
                 "I can't sleep because I'm so worried",
-                "My anxiety is keeping me up at night"
+                "My anxiety is keeping me up at night",
+                "I'm constantly on edge",
+                "What if everything goes wrong",
+                "I can't stop thinking about the worst case scenario",
+                "My chest feels tight with worry",
+                "I'm having trouble breathing from anxiety"
             ],
             
             'anger': [
@@ -385,7 +398,10 @@ class EmotionBasedSemanticClassifier:
                 "This is completely unacceptable",
                 "I'm fed up with this nonsense",
                 "Why can't people just do their job",
-                "I'm tired of incompetence"
+                "I'm tired of incompetence",
+                "This makes me so mad",
+                "I've had enough of this",
+                "I'm at my breaking point with anger"
             ],
             
             'loneliness': [
@@ -406,7 +422,10 @@ class EmotionBasedSemanticClassifier:
                 "I'm always the outsider",
                 "People don't reach out to me",
                 "I feel disconnected from everyone around me",
-                "I'm alone in this struggle"
+                "I'm alone in this struggle",
+                "I wish I had someone to talk to",
+                "Nobody really knows me",
+                "I feel like no one gets me"
             ],
             
             'stress': [
@@ -427,7 +446,9 @@ class EmotionBasedSemanticClassifier:
                 "I don't have time for anything",
                 "Everything is demanding my attention",
                 "I feel pulled in a million directions",
-                "I can't keep up with everything"
+                "I can't keep up with everything",
+                "I'm burnt out",
+                "The pressure is crushing me"
             ],
             
             'fear': [
@@ -445,7 +466,9 @@ class EmotionBasedSemanticClassifier:
                 "I'm terrified of being alone",
                 "I'm scared I'm not good enough",
                 "I fear the worst will happen",
-                "I'm afraid I can't handle this"
+                "I'm afraid I can't handle this",
+                "I'm really frightened",
+                "This scares me so much"
             ],
             
             'crisis': [
@@ -456,6 +479,9 @@ class EmotionBasedSemanticClassifier:
                 "I want to kill myself",
                 "I'm planning to end things",
                 "I've been researching ways to die",
+                "I want to die",
+                "I wish I was dead",
+                "I'm going to kill myself",
                 
                 # Hopelessness
                 "Life has no meaning anymore",
@@ -464,16 +490,22 @@ class EmotionBasedSemanticClassifier:
                 "Nothing will ever get better",
                 "I can't see any way forward",
                 "Why keep going when nothing matters",
+                "I have no reason to live",
+                "Everything is hopeless",
                 
                 # Burden thoughts
                 "Everyone would be better off without me",
+                "I'm a burden to everyone",
                 "My family deserves better than me",
                 "I'm just making things worse for everyone",
+                "People would be happier if I was gone",
+                "I'm worthless and should just disappear",
                 
                 # Self-harm
                 "I want to hurt myself", "I'm thinking about cutting",
                 "I need to punish myself", "I deserve to suffer",
-                "I've been harming myself", "I can't stop hurting myself"
+                "I've been harming myself", "I can't stop hurting myself",
+                "I cut myself", "I hurt myself on purpose"
             ],
             
             'guilt': [  # NEW CATEGORY
@@ -493,7 +525,10 @@ class EmotionBasedSemanticClassifier:
                 "I'm responsible for everything going wrong",
                 "I don't deserve good things",
                 "I'm filled with shame",
-                "I hate myself for this"
+                "I hate myself for this",
+                "I can't stop blaming myself",
+                "I feel like I ruined everything",
+                "I'm such a bad person"
             ],
             
             'positive': [  # NEW CATEGORY
@@ -513,7 +548,17 @@ class EmotionBasedSemanticClassifier:
                 "Things are looking up",
                 "I'm really proud of myself",
                 "I feel energized and alive",
-                "I'm having a great day"
+                "I'm having a great day",
+                "I feel so good",
+                "Everything is awesome",
+                "I'm so happy I could cry",
+                "Life is good",
+                "I'm in a great place",
+                "I feel wonderful",
+                "This is the best day ever",
+                "delighted", "blissful", "rapturous", "ecstatic", 
+                "thrilled", "overjoyed", "elated", "jubilant",
+                "on top of the world", "feeling amazing"
             ],
             
             'neutral': [  # NEW CATEGORY
@@ -533,7 +578,12 @@ class EmotionBasedSemanticClassifier:
                 "Tell me something interesting",
                 "What's the weather like",
                 "Do you speak other languages",
-                "Bonjour", "Hola", "Namaste"
+                "Bonjour", "Hola", "Namaste",
+                "How's it going",
+                "What's new",
+                "Interesting",
+                "I see",
+                "Okay"
             ],
             
             'educational': [
@@ -559,7 +609,10 @@ class EmotionBasedSemanticClassifier:
                 "Tell me about mental health treatment",
                 "What are the symptoms of depression",
                 "How do I know if I need therapy",
-                "When should I see a therapist"
+                "When should I see a therapist",
+                "What is CBT",
+                "Explain mindfulness to me",
+                "What are mental health disorders"
             ],
             
             'coping': [
@@ -582,7 +635,9 @@ class EmotionBasedSemanticClassifier:
                 "Teach me relaxation techniques",
                 "I want to learn mindfulness",
                 "Show me how to practice self-care",
-                "Help me build coping skills"
+                "Help me build coping skills",
+                "What are some coping mechanisms",
+                "How do I manage my emotions"
             ]
         }
 
@@ -597,9 +652,9 @@ class EmotionBasedSemanticClassifier:
         self,
         text: str,
         threshold_crisis: float = 0.55,      # LOWERED from 0.68
-        threshold_high: float = 0.48,        # LOWERED from 0.62
-        threshold_medium: float = 0.45,      # LOWERED from 0.57
-        threshold_low: float = 0.42          # LOWERED from 0.52
+        threshold_high: float = 0.38,        # LOWERED from 0.62
+        threshold_medium: float = 0.36,      # LOWERED from 0.57
+        threshold_low: float = 0.33          # LOWERED from 0.52
     ) -> str:
         
         # STEP 1: Semantic classification
@@ -634,7 +689,7 @@ class EmotionBasedSemanticClassifier:
             if similarities[emotion] >= threshold_medium:
                 return emotion
         
-        if similarities['positive'] >= threshold_low:
+        if similarities['positive'] >= 0.30:
             return 'positive'
                 
         if similarities['coping'] >= threshold_low:
