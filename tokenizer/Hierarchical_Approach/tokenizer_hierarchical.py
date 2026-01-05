@@ -9,111 +9,95 @@ def tokenize_hierarchical_dataset(
     output_dir="tokenized_rejected_dataset_hierarchical",
     model_name="EleutherAI/gpt-neo-125M",
     max_length=768,
-    test_split=0.2
+    test_split=0.2,
+    seed=42
 ):
-    
-    print(f"\nLoading data from {input_file}...")
     with open(input_file, "r", encoding="utf-8") as f:
         data = json.load(f)
-    
-    print(f"Loaded {len(data)} samples")
-    
-    print(f"\nLoading tokenizer: {model_name}...")
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    
+
+    print(f"Loaded {len(data)} samples from {input_file}")
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    
-    print("\nCreating dataset...")
-    dataset = Dataset.from_list([
-        {
-            "SYSTEM": item["SYSTEM"],
-            "User": item["User"],
-            "Assistant": item["Assistant"]
-        }
-        for item in data
-    ])
-    
-    def tokenize_function(example):
-        system_text = example["SYSTEM"].strip() + "\n\n"
-        user_text = f"User: {example['User'].strip()}\n\nAssistant:"
-        assistant_text = " " + example["Assistant"].strip()
-        
-        system_ids = tokenizer(
-            system_text,
-            add_special_tokens=False
-        )["input_ids"]
-        
-        user_ids = tokenizer(
-            user_text,
-            add_special_tokens=False
-        )["input_ids"]
-        
-        assistant_ids = tokenizer(
-            assistant_text,
-            add_special_tokens=False
-        )["input_ids"]
-        
-        input_ids = system_ids + user_ids + assistant_ids
-        
-        labels = (
-            [-100] * len(system_ids)
-            + [-100] * len(user_ids)
-            + assistant_ids
-        )
-        
-        input_ids = input_ids[:max_length]
-        labels = labels[:max_length]
-        
-        attention_mask = [1] * len(input_ids)
-        
+
+    dataset = Dataset.from_list(data)
+
+    def tokenize_function(batch):
+        input_ids_batch = []
+        labels_batch = []
+        attention_masks = []
+
+        for system, user, assistant in zip(
+            batch["SYSTEM"], batch["User"], batch["Assistant"]
+        ):
+            system_text = system.strip() + "\n\n"
+            user_text = f"User: {user.strip()}\n\nAssistant:"
+            assistant_text = " " + assistant.strip()
+
+            system_ids = tokenizer(system_text, add_special_tokens=False).input_ids
+            user_ids = tokenizer(user_text, add_special_tokens=False).input_ids
+            assistant_ids = tokenizer(assistant_text, add_special_tokens=False).input_ids
+
+            input_ids = system_ids + user_ids + assistant_ids
+            labels = [-100] * len(system_ids) + [-100] * len(user_ids) + assistant_ids
+
+            input_ids = input_ids[:max_length]
+            labels = labels[:max_length]
+
+            attention_mask = [1] * len(input_ids)
+
+            input_ids_batch.append(input_ids)
+            labels_batch.append(labels)
+            attention_masks.append(attention_mask)
+
         return {
-            "input_ids": input_ids,
-            "labels": labels,
-            "attention_mask": attention_mask
+            "input_ids": input_ids_batch,
+            "labels": labels_batch,
+            "attention_mask": attention_masks,
         }
-    
-    print("Tokenizing...")
+
     tokenized_dataset = dataset.map(
         tokenize_function,
-        remove_columns=["SYSTEM", "User", "Assistant"],
-        desc="Tokenizing"
+        batched=True,
+        remove_columns=dataset.column_names,
+        desc="Tokenizing dataset",
     )
-    
+
     split_dataset = tokenized_dataset.train_test_split(
         test_size=test_split,
-        seed=42
+        seed=seed
     )
-    
+
     train_dataset = split_dataset["train"]
     val_dataset = split_dataset["test"]
-    
-    print(f"\nSplit: {len(train_dataset)} train, {len(val_dataset)} validation")
-    
+
+    print(f"Train samples: {len(train_dataset)}")
+    print(f"Validation samples: {len(val_dataset)}")
+
     os.makedirs(output_dir, exist_ok=True)
-    train_dataset.save_to_disk(f"{output_dir}/train")
-    val_dataset.save_to_disk(f"{output_dir}/validation")
-    tokenizer.save_pretrained(f"{output_dir}/tokenizer")
-    
+
+    train_dataset.save_to_disk(os.path.join(output_dir, "train"))
+    val_dataset.save_to_disk(os.path.join(output_dir, "validation"))
+    tokenizer.save_pretrained(os.path.join(output_dir, "tokenizer"))
+
     stats = {
         "total_samples": len(data),
         "train_samples": len(train_dataset),
         "val_samples": len(val_dataset),
+        "model": model_name,
         "max_length": max_length,
-        "classification": "hierarchical_emotion",
-        "label_masking": "assistant_only",
-        "fields_used": ["SYSTEM", "User", "Assistant"]
+        "loss_masking": "assistant_only",
+        "format": "SYSTEM → User → Assistant",
+        "task": "hierarchical_emotion"
     }
-    
-    with open(f"{output_dir}/stats.json", "w", encoding="utf-8") as f:
+
+    with open(os.path.join(output_dir, "stats.json"), "w", encoding="utf-8") as f:
         json.dump(stats, f, indent=2)
-    
-    print(f"\nSaved to {output_dir}/")
-    print(f"Train: {len(train_dataset)} samples")
-    print(f"Validation: {len(val_dataset)} samples")
-    print(f"Tokenizer config saved")
-    print("\nTokenization complete\n")
-    
+
+    print(f"Tokenized dataset saved to: {output_dir}")
+
     return train_dataset, val_dataset
 
 
