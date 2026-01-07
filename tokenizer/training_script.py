@@ -39,8 +39,7 @@ if tokenizer.pad_token is None:
 print("Loading GPT-Neo-125M model...")
 model = AutoModelForCausalLM.from_pretrained(
     "EleutherAI/gpt-neo-125M",
-    torch_dtype=torch.float16,
-    device_map="auto"
+    torch_dtype=torch.float32
 )
 model.resize_token_embeddings(len(tokenizer))
 model.config.pad_token_id = tokenizer.pad_token_id
@@ -114,7 +113,7 @@ training_args = TrainingArguments(
     lr_scheduler_type="cosine",
     warmup_ratio=0.1,
     weight_decay=0.01,
-    fp16=True,
+    fp16=False,
     logging_dir=f"{output_dir}/logs",
     logging_steps=10,
     eval_strategy="steps",
@@ -123,7 +122,7 @@ training_args = TrainingArguments(
     save_steps=200,
     save_total_limit=3,
     load_best_model_at_end=True,
-    metric_for_best_model="loss",
+    metric_for_best_model="eval_loss",
     greater_is_better=False,
     report_to="none",
     dataloader_num_workers=0,  # FIXED: Changed from 2 to 0 to avoid worker issues
