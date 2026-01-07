@@ -1,7 +1,0 @@
-{
-  "total_samples": 5609,
-  "train_samples": 5048,
-  "val_samples": 561,
-  "max_length": 512,
-  "model_name": "EleutherAI/gpt-neo-125M"
-}
