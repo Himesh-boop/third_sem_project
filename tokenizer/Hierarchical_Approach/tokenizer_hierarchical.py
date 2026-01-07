@@ -10,8 +10,7 @@ def tokenize_hierarchical_dataset(
     model_name="EleutherAI/gpt-neo-125M",
     max_length=768,
     test_split=0.2,
-    seed=42
-):
+    seed=42):
     with open(input_file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
@@ -30,8 +29,7 @@ def tokenize_hierarchical_dataset(
         attention_masks = []
 
         for system, user, assistant in zip(
-            batch["SYSTEM"], batch["User"], batch["Assistant"]
-        ):
+            batch["SYSTEM"], batch["User"], batch["Assistant"]):
             system_text = system.strip() + "\n\n"
             user_text = f"User: {user.strip()}\n\nAssistant:"
             assistant_text = " " + assistant.strip()
@@ -43,10 +41,12 @@ def tokenize_hierarchical_dataset(
             input_ids = system_ids + user_ids + assistant_ids
             labels = [-100] * len(system_ids) + [-100] * len(user_ids) + assistant_ids
 
-            input_ids = input_ids[:max_length]
-            labels = labels[:max_length]
+            pad_len = max_length - len(input_ids)
+            if pad_len > 0:
+                input_ids += [tokenizer.pad_token_id] * pad_len
+                labels += [-100] * pad_len
 
-            attention_mask = [1] * len(input_ids)
+            attention_mask = [1 if id != tokenizer.pad_token_id else 0 for id in input_ids]
 
             input_ids_batch.append(input_ids)
             labels_batch.append(labels)
@@ -67,8 +67,7 @@ def tokenize_hierarchical_dataset(
 
     split_dataset = tokenized_dataset.train_test_split(
         test_size=test_split,
-        seed=seed
-    )
+        seed=seed)
 
     train_dataset = split_dataset["train"]
     val_dataset = split_dataset["test"]
