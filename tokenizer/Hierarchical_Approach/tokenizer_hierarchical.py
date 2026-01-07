@@ -5,8 +5,8 @@ from transformers import AutoTokenizer
 
 
 def tokenize_hierarchical_dataset(
-    input_file="rejected_data_hierarchical.json",
-    output_dir="tokenized_rejected_dataset_hierarchical",
+    input_file="preprocessed_data_hierarchical.json",
+    output_dir="tokenized_dataset_hierarchical",
     model_name="EleutherAI/gpt-neo-125M",
     max_length=768,
     test_split=0.2,
