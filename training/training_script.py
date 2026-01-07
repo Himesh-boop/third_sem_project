@@ -15,8 +15,8 @@ from transformers import (
 # -----------------------------
 # Paths
 # -----------------------------
-dataset_base = "third_sem_project/tokenizer/Hierarchical_Approach/tokenized_dataset_hierarchical"
-output_dir = "third_sem_project/freud_model"
+dataset_base = "Freud/tokenizer/Hierarchical_Approach/tokenized_dataset_hierarchical"
+output_dir = "Freud/freud_model"
 
 # -----------------------------
 # Load datasets
