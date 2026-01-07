@@ -1,0 +1,10 @@
+{
+  "total_samples": 2400,
+  "train_samples": 1920,
+  "val_samples": 480,
+  "model": "EleutherAI/gpt-neo-125M",
+  "max_length": 768,
+  "loss_masking": "assistant_only",
+  "format": "SYSTEM \u2192 User \u2192 Assistant",
+  "task": "hierarchical_emotion"
+}
