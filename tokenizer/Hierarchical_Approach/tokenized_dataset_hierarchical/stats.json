@@ -4,7 +4,8 @@
   "val_samples": 480,
   "model": "EleutherAI/gpt-neo-125M",
   "max_length": 768,
-  "loss_masking": "assistant_only",
-  "format": "SYSTEM \u2192 User \u2192 Assistant",
-  "task": "hierarchical_emotion"
+  "loss_masking": "assistant_answer_only",
+  "answer_format": "<ANSWER> ... </ANSWER>",
+  "hierarchy_preserved": true,
+  "task": "hierarchical_emotion_dialogue"
 }
