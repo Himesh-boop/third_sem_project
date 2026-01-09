@@ -1,0 +1,38 @@
+*   [33m68071ca[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Merge branch 'test'
+[31m|[m[32m\[m  
+[31m|[m * [33m341a7d4[m[33m ([m[1;32mtest[m[33m)[m fixed training error
+[31m|[m * [33m32cabfd[m training error fixed
+[31m|[m * [33m930f42b[m training error fixed
+* [32m|[m [33m72a7ec1[m Ignore large model zip for now
+[32m|[m[32m/[m  
+*   [33mc770a58[m Merge branch 'main' of https://github.com/Himesh-boop/third_sem_project
+[33m|[m[34m\[m  
+[33m|[m *   [33m713312d[m Merge branch 'main' of https://github.com/Himesh-boop/third_sem_project
+[33m|[m [35m|[m[36m\[m  
+[33m|[m * [36m|[m [33mfc3b29c[m file
+* [36m|[m [36m|[m [33m2663d5d[m Pasted output cell of training script for improvemnets
+[36m|[m [36m|[m[36m/[m  
+[36m|[m[36m/[m[36m|[m   
+* [36m|[m [33m5b09332[m Final Working script of Freud_Training_1
+* [36m|[m [33m21e8d86[m Updated tokenized folder
+* [36m|[m [33me0d956f[m Added truncation and padding in tokenizer
+* [36m|[m [33m612feb7[m Deafult training script
+* [36m|[m [33m18cad95[m made tokenizer more optimal
+* [36m|[m [33m7572904[m New approach of hierarchical, seperated dataset into 2, 2400 of high confidence which may help in training bcz quality>quantity
+* [36m|[m [33ma6f834e[m Quite changes in classfier
+* [36m|[m [33m338c8c1[m Mid-range confidence dataset
+* [36m|[m [33md424e81[m more emotions needed
+* [36m|[m [33m3569470[m Semantic dataset update but not accurate
+* [36m|[m [33m5097911[m Managed files to make it clean
+* [36m|[m [33mca5c651[m Addition 2nd approch that is embeddings
+* [36m|[m [33m2ff1f92[m Added code for structured prompt
+* [36m|[m [33mc6b43b3[m Test file added
+* [36m|[m [33m2f1c55d[m Update data pipeline and regenerate tokenized dataset with 80-20 split
+* [36m|[m [33m46cded9[m Made zip file to upload to Kaggle
+[36m|[m[36m/[m  
+* [33m70ce45c[m Organized old files into old_pipeline folder, keep dataset and pipeline clean
+* [33m487348d[m Added new pipeline.py and then trainable dataset
+* [33m364c87b[m We have now 5609 samples after the bug fixxing
+* [33m043de3c[m Fixed the Indentation of append
+* [33m9b03e66[m tokenization complete (more datasets needed)
+* [33md9594a3[m Initial commit
